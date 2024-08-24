@@ -8,8 +8,10 @@ const app = express();
 app.use(express.json());
 
 app.use((req, res, next) => {
-    if (req.path === '/addSchool' || '/listSchools') {
-        return next(); // Skip authentication for /addSchool
+    console.log(`Request path: ${req.path}`);
+    console.log(`Authorization header: ${req.headers.authorization}`);
+    if (req.path === '/addSchool' || req.path === '/listSchools') {
+        return next();
     }
 
     if (!req.headers.authorization) {
