@@ -7,6 +7,20 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
+app.use((req, res, next) => {
+    if (req.path === '/addSchool' || '/listSchools') {
+        return next(); // Skip authentication for /addSchool
+    }
+
+    if (!req.headers.authorization) {
+        return res.status(401).json({ message: 'Authentication required' });
+    }
+
+    next();
+});
+
+
+
 // Connecting SQL with the project
 const db = mysql.createConnection({
     host: process.env.DB_HOST,
