@@ -1,4 +1,4 @@
-const express = require('express');  
+const express = require('express');
 const mysql = require('mysql2');
 const dotenv = require('dotenv');
 
@@ -7,27 +7,28 @@ dotenv.config();
 const app = express();
 app.use(express.json());
 
-//connecting sql with the project 
+// Connecting SQL with the project
 const db = mysql.createConnection({
     host: process.env.DB_HOST,
+    port: process.env.DB_PORT,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME
+    database: process.env.DB_NAME,
+    connectTimeout: 30000 // 10 seconds timeout
 });
 
-db.connect(err => {
-    if (err) throw err;
-    console.log('Connected to database');
+db.connect((err) => {
+    if (err) {
+        console.error('Error connecting to the database:', err);
+        return;
+    }
+    console.log('Connected to the Railway MySQL database');
 });
 
-const PORT = process.env.PORT || 3000;
+console.log(`Connecting to database at ${process.env.DB_HOST}:${process.env.DB_PORT}`);
 
 
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
-
-//first API : addSchool  
+// API: addSchool
 app.post('/addSchool', (req, res) => {
     const { name, address, latitude, longitude } = req.body;
 
@@ -36,30 +37,33 @@ app.post('/addSchool', (req, res) => {
         return res.status(400).json({ message: 'All fields are required' });
     }
 
-    // SQL query to insert the new schools
+    // SQL query to insert the new school
     const query = 'INSERT INTO schools (name, address, latitude, longitude) VALUES (?, ?, ?, ?)';
 
     // Executing the query
     db.query(query, [name, address, latitude, longitude], (err, result) => {
         if (err) {
             console.error('Error inserting school into database:', err);
-            return res.status(500).json({ message: 'Database error' });
+            return res.status(500).json({ message: 'Database error', error: err.message });
         }
 
-        //success response 
+        // Success response
         res.status(201).json({ message: 'School added successfully', id: result.insertId });
     });
 });
 
-
-//second API : listSchool
+// API: listSchools
 app.get('/listSchools', (req, res) => {
     const { latitude, longitude } = req.query;
 
-    // Validating the  input
+    // Validating the input
     if (!latitude || !longitude) {
         return res.status(400).json({ message: 'Latitude and longitude are required' });
     }
+
+    // Convert latitude and longitude to numbers
+    const lat = parseFloat(latitude);
+    const lon = parseFloat(longitude);
 
     // Query to fetch all schools
     const query = 'SELECT * FROM schools';
@@ -67,12 +71,12 @@ app.get('/listSchools', (req, res) => {
     db.query(query, (err, schools) => {
         if (err) {
             console.error('Error fetching schools from database:', err);
-            return res.status(500).json({ message: 'Database error' });
+            return res.status(500).json({ message: 'Database error', error: err.message });
         }
 
         // Calculate distance for each school
         schools.forEach(school => {
-            school.distance = calculateDistance(latitude, longitude, school.latitude, school.longitude);
+            school.distance = calculateDistance(lat, lon, parseFloat(school.latitude), parseFloat(school.longitude));
         });
 
         // Sort schools by distance
@@ -92,12 +96,16 @@ function calculateDistance(lat1, lon1, lat2, lon2) {
         Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) *
         Math.sin(dLon / 2) * Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const distance = R * c;
-    return distance;
+    return R * c;
 }
 
 function deg2rad(deg) {
     return deg * (Math.PI / 180);
 }
 
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
 
